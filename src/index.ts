@@ -1,15 +1,17 @@
 import { buildApp } from './app.js';
 import { connectDb, disconnectDb } from './db/connection.js';
 import { ensureEventCollection } from './db/eventCollection.js';
+import { seedEvents } from './db/seedEvents.js';
 import { connectRedis, disconnectRedis } from './redis/connection.js';
 import type { DbHandle } from './types/db.js';
 
 const PORT = 4000;
 
-/** Connects to the database and Redis, builds the app, and starts listening on PORT. */
+/** Connects to the database and Redis, seeds demo data, builds the app, and starts listening on PORT. */
 async function main(): Promise<void> {
     const dbHandle: DbHandle = await connectDb();
     await ensureEventCollection(dbHandle.db);
+    await seedEvents(dbHandle.db);
     const redis = connectRedis();
 
     const app = buildApp(dbHandle.db, redis);
