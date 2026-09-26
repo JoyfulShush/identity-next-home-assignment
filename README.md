@@ -15,6 +15,28 @@ bracket-syntax filters on the session-details endpoint.
 npm install
 ```
 
+> **Platform note**: this project has only been run and verified on macOS. `npm install` pulls in
+> `mongodb-memory-server`, which downloads a real `mongod` binary matching your OS/architecture on
+> first use (it's not a pure-JS mock), so installation on Windows or Linux may hit issues that
+> haven't been seen here:
+>
+> - **No internet access at install/first-run time**: the binary download will fail outright.
+>   Make sure the machine can reach `fastdl.mongodb.org` (or a configured mirror), or pre-populate
+>   `mongodb-memory-server`'s binary cache from a machine that can.
+> - **Alpine Linux / musl-based containers**: the default binary is built for glibc and won't run.
+>   Either use a glibc-based image (e.g. `node:24` instead of `node:24-alpine`), or configure
+>   `mongodb-memory-server` to download a musl-compatible build (see its
+>   [docs](https://typegoose.github.io/mongodb-memory-server/) for the relevant environment
+>   variables).
+> - **Corporate proxies/firewalls**: if the download is blocked or intercepted, set
+>   `MONGOMS_DOWNLOAD_URL`/`MONGOMS_DOWNLOAD_MIRROR` (see the same docs) to point at an internal
+>   mirror, or set `MONGOMS_SYSTEM_BINARY` to use a `mongod` already installed on the machine.
+> - **Windows**: not tested at all. If `npm install` or `npm start` fails, the error will likely
+>   point at the same binary-download step above.
+
+If installation fails for any of these reasons, running the app itself doesn't require Docker or a
+real MongoDB server — only the initial binary download needs to succeed once.
+
 ## Running
 
 ```bash
@@ -54,6 +76,44 @@ npm run format:check  # verify formatting, no changes
 ```
 
 Formatting is enforced with Prettier.
+
+## Notes
+
+Chosen approach: Redis Lock to control mutations concurrently, and slight schema changes to
+support multiple value changes such as document creation, update, and log out. I've considered
+using `status` field instead of log out field, but due to the timestamp it self-serves as a
+status, and so a `status` field felt redundant.
+
+Queries allow the caller to build a query params based on their needs and a filter is built out of
+all of those. I decided to go only for inclusion since it did become complex already.
+
+Assumptions:
+
+- Only one session per (tenantId, username, ip) can be "logged in" at a time
+    - Multiple can exist if they are indicated that they were logged out, only one may still be
+      logged in though at maximum.
+- Sessions never expire.
+- Sessions keep a date where they occurred, and when they were last updated.
+- Logging into or out of a session that is already logged in or out simply succeeds without doing
+  anything
+- Updating tags does a full replace of the existing tags with the tags that were sent in the
+  update body.
+- Updates can only apply to an in-progress session. Sessions that ended cannot be updated via the
+  update method.
+- Queries are inclusion only (whitelist).
+
+Things I would do if I had more time:
+
+- Logger (pino)
+- Docker instance
+- Real Mongo DB server
+- Real Redis server
+- Contract/Integration tests
+- Garbage collector: automatically removes sessions that are extremely old (beyond retention
+  period)
+- Schema to DTOs (for accurate types based on the schema for each route)
+- GraphQL
+- Supporting blacklisting in queries.
 
 ## Error Handling
 
