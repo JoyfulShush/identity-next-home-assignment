@@ -6,12 +6,14 @@ import type { DbHandle, EventDocument } from '../../src/types/db.js';
 const VALID_TENANT_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 
 function validEvent(overrides: Partial<EventDocument> = {}): EventDocument {
+    const now = new Date();
     return {
         tenantId: VALID_TENANT_ID,
         username: 'alice123',
         ip: '127.0.0.1',
         tags: ['login', 'vpn'],
-        timestamp: new Date(),
+        createdAt: now,
+        updatedAt: now,
         ...overrides,
     };
 }
@@ -136,19 +138,56 @@ describe('Event collection', () => {
         });
     });
 
-    describe('timestamp', () => {
+    describe('createdAt', () => {
         it('rejects a string instead of a date', async () => {
             await expect(
                 rawCollection.insertOne({
                     ...validEvent(),
-                    timestamp: '2024-01-01T00:00:00.000Z',
+                    createdAt: '2024-01-01T00:00:00.000Z',
                 }),
             ).rejects.toThrow();
         });
 
         it('accepts a valid date', async () => {
-            const result = await collection.insertOne(validEvent({ timestamp: new Date() }));
+            const result = await collection.insertOne(validEvent({ createdAt: new Date() }));
             expect(result.acknowledged).toBe(true);
+        });
+    });
+
+    describe('updatedAt', () => {
+        it('rejects a string instead of a date', async () => {
+            await expect(
+                rawCollection.insertOne({
+                    ...validEvent(),
+                    updatedAt: '2024-01-01T00:00:00.000Z',
+                }),
+            ).rejects.toThrow();
+        });
+
+        it('accepts a valid date', async () => {
+            const result = await collection.insertOne(validEvent({ updatedAt: new Date() }));
+            expect(result.acknowledged).toBe(true);
+        });
+    });
+
+    describe('loggedOutAt', () => {
+        it('is accepted when absent', async () => {
+            const result = await collection.insertOne(validEvent());
+            expect(result.acknowledged).toBe(true);
+        });
+
+        it('accepts a valid date when present', async () => {
+            const result = await collection.insertOne(validEvent({ loggedOutAt: new Date() }));
+            expect(result.acknowledged).toBe(true);
+        });
+
+        it('rejects a string instead of a date', async () => {
+            await expect(
+                rawCollection.insertOne({
+                    ...validEvent(),
+                    loggedOutAt: '2024-01-01T00:00:00.000Z',
+                }),
+            ).rejects.toThrow();
         });
     });
 
@@ -173,8 +212,13 @@ describe('Event collection', () => {
             await expect(rawCollection.insertOne(event)).rejects.toThrow();
         });
 
-        it('rejects a document missing timestamp', async () => {
-            const { timestamp, ...event } = validEvent();
+        it('rejects a document missing createdAt', async () => {
+            const { createdAt, ...event } = validEvent();
+            await expect(rawCollection.insertOne(event)).rejects.toThrow();
+        });
+
+        it('rejects a document missing updatedAt', async () => {
+            const { updatedAt, ...event } = validEvent();
             await expect(rawCollection.insertOne(event)).rejects.toThrow();
         });
     });

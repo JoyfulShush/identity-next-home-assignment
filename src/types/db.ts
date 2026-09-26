@@ -12,5 +12,7 @@ export interface EventDocument {
     username: string;
     ip: string;
     tags: string[];
-    timestamp: Date;
+    createdAt: Date;
+    updatedAt: Date;
+    loggedOutAt?: Date;
 }

@@ -2,7 +2,7 @@ import { IPV4_PATTERN, IPV6_PATTERN, UUID_V4_PATTERN, USERNAME_PATTERN } from '.
 
 export const EVENT_JSON_SCHEMA = {
     bsonType: 'object',
-    required: ['tenantId', 'username', 'ip', 'tags', 'timestamp'],
+    required: ['tenantId', 'username', 'ip', 'tags', 'createdAt', 'updatedAt'],
     additionalProperties: false,
     properties: {
         _id: {},
@@ -29,9 +29,19 @@ export const EVENT_JSON_SCHEMA = {
             },
             description: 'Unique string tags for the event, may be empty',
         },
-        timestamp: {
+        createdAt: {
             bsonType: 'date',
-            description: 'Date and time the event occurred',
+            description: 'Date and time the document was created (typically via a login)',
+        },
+        updatedAt: {
+            bsonType: 'date',
+            description:
+                'Date and time the document was last updated (typically via an update); ' +
+                'equal to createdAt when the document is created',
+        },
+        loggedOutAt: {
+            bsonType: 'date',
+            description: 'Date and time the session was logged out, if it has been',
         },
     },
 };
