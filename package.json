@@ -1,0 +1,36 @@
+{
+    "name": "identity-next-home-assignment",
+    "version": "1.0.0",
+    "description": "Identity Next home assignment backend service",
+    "main": "dist/index.js",
+    "scripts": {
+        "test": "node --experimental-vm-modules node_modules/.bin/jest",
+        "build": "tsc -p tsconfig.build.json",
+        "start": "node dist/index.js",
+        "dev": "node --loader ts-node/esm --watch src/index.ts",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/JoyfulShush/identity-next-home-assignment.git"
+    },
+    "license": "UNLICENSED",
+    "type": "module",
+    "bugs": {
+        "url": "https://github.com/JoyfulShush/identity-next-home-assignment/issues"
+    },
+    "homepage": "https://github.com/JoyfulShush/identity-next-home-assignment#readme",
+    "dependencies": {
+        "fastify": "^5.12.5"
+    },
+    "devDependencies": {
+        "@types/jest": "^30.0.0",
+        "@types/node": "^26.6.3",
+        "jest": "^30.5.2",
+        "prettier": "^3.9.9",
+        "ts-jest": "^29.4.14",
+        "ts-node": "^10.9.2",
+        "typescript": "^6.0.3"
+    }
+}
