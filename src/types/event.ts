@@ -29,3 +29,14 @@ export interface UpdateEventDto {
 export interface UpdateRequest {
     Body: UpdateEventDto;
 }
+
+export interface LogoutEventDto {
+    tenantId: string;
+    username: string;
+    ip: string;
+    timestamp: string;
+}
+
+export interface LogoutRequest {
+    Body: LogoutEventDto;
+}

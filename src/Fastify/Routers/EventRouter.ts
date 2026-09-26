@@ -1,7 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { EventController } from '../Controllers/EventController.js';
 import { eventLoginSchema } from '../../schemas/loginEventSchema.js';
-import type { LoginRequest, UpdateRequest } from '../../types/event.js';
+import { eventLogoutSchema } from '../../schemas/logoutEventSchema.js';
+import type { LoginRequest, LogoutRequest, UpdateRequest } from '../../types/event.js';
 
 export async function eventRouter(app: FastifyInstance): Promise<void> {
     const eventController = new EventController(app.db);
@@ -18,5 +19,12 @@ export async function eventRouter(app: FastifyInstance): Promise<void> {
         { schema: { body: eventLoginSchema } },
         (request: FastifyRequest<UpdateRequest>, reply: FastifyReply) =>
             eventController.update(request, reply),
+    );
+
+    app.post(
+        '/logout',
+        { schema: { body: eventLogoutSchema } },
+        (request: FastifyRequest<LogoutRequest>, reply: FastifyReply) =>
+            eventController.logout(request, reply),
     );
 }

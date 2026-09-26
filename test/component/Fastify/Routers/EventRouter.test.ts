@@ -18,6 +18,16 @@ function validBody(overrides: Record<string, unknown> = {}) {
     };
 }
 
+function validLogoutBody(overrides: Record<string, unknown> = {}) {
+    return {
+        tenantId: VALID_TENANT_ID,
+        username: 'alice123',
+        ip: '127.0.0.1',
+        timestamp: '2024-06-01T00:00:00.000Z',
+        ...overrides,
+    };
+}
+
 describe('POST /event/login', () => {
     let dbHandle: DbHandle;
     let app: FastifyInstance;
@@ -222,6 +232,88 @@ describe('PATCH /event/update', () => {
         const body = response.json();
         expect(body.errors).toEqual(
             expect.arrayContaining([expect.objectContaining({ field: 'tenantId' })]),
+        );
+    });
+});
+
+describe('POST /event/logout', () => {
+    let dbHandle: DbHandle;
+    let app: FastifyInstance;
+
+    beforeAll(async () => {
+        dbHandle = await connectDb();
+        await ensureEventCollection(dbHandle.db);
+    }, 5000);
+
+    afterAll(async () => {
+        await disconnectDb(dbHandle);
+    });
+
+    beforeEach(() => {
+        app = buildApp(dbHandle.db);
+    });
+
+    afterEach(async () => {
+        await app.close();
+        await dbHandle.db.collection('Event').deleteMany({});
+    });
+
+    it('returns 204 and sets loggedOutAt on the matching open session', async () => {
+        const login = await app.inject({
+            method: 'POST',
+            url: '/event/login',
+            payload: validBody(),
+        });
+
+        const response = await app.inject({
+            method: 'POST',
+            url: '/event/logout',
+            payload: validLogoutBody(),
+        });
+
+        expect(response).toMatchObject({ statusCode: 204, body: '' });
+
+        const stored = await dbHandle.db
+            .collection('Event')
+            .findOne({ _id: new ObjectId(login.json()._id) });
+        expect(stored).toMatchObject({ loggedOutAt: new Date('2024-06-01T00:00:00.000Z') });
+    });
+
+    it('returns 204 when there is no matching session', async () => {
+        const response = await app.inject({
+            method: 'POST',
+            url: '/event/logout',
+            payload: validLogoutBody(),
+        });
+
+        expect(response).toMatchObject({ statusCode: 204, body: '' });
+    });
+
+    it('returns 400 with field details for an invalid body', async () => {
+        const response = await app.inject({
+            method: 'POST',
+            url: '/event/logout',
+            payload: validLogoutBody({ tenantId: 'not-a-uuid' }),
+        });
+
+        expect(response).toMatchObject({ statusCode: 400 });
+        const body = response.json();
+        expect(body.errors).toEqual(
+            expect.arrayContaining([expect.objectContaining({ field: 'tenantId' })]),
+        );
+    });
+
+    it('returns 400 for an unexpected extra property', async () => {
+        const response = await app.inject({
+            method: 'POST',
+            url: '/event/logout',
+            payload: validLogoutBody({ tags: ['nope'] }),
+        });
+
+        expect(response).toMatchObject({ statusCode: 400 });
+        const body = response.json();
+        expect(body.errors).toEqual(
+            expect.arrayContaining([expect.objectContaining({ field: 'tags' })]),
         );
     });
 });

@@ -2,7 +2,12 @@ import type { Db, WithId } from 'mongodb';
 import { EVENT_COLLECTION } from '../../db/constants.js';
 import { NotFoundError } from '../errors/index.js';
 import type { EventDocument } from '../../types/db.js';
-import type { LoginEventDto, LoginResult, UpdateEventDto } from '../../types/event.js';
+import type {
+    LoginEventDto,
+    LoginResult,
+    LogoutEventDto,
+    UpdateEventDto,
+} from '../../types/event.js';
 
 export class EventService {
     constructor(private readonly db: Db) {}
@@ -56,5 +61,15 @@ export class EventService {
         }
 
         return updated;
+    }
+
+    async logout(dto: LogoutEventDto): Promise<void> {
+        const { tenantId, username, ip, timestamp } = dto;
+        const collection = this.db.collection<EventDocument>(EVENT_COLLECTION);
+
+        await collection.updateOne(
+            { tenantId, username, ip, loggedOutAt: { $exists: false } },
+            { $set: { loggedOutAt: new Date(timestamp) } },
+        );
     }
 }
