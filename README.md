@@ -1,6 +1,8 @@
 # identity-next-home-assignment
 
-Backend service built with Fastify and TypeScript, for evaluation purposes.
+Backend service built with Fastify and TypeScript, for evaluation purposes. Uses MongoDB for
+storage and Redis with Redlock for distributed locking, both backed by in-memory mocks so the
+app and its tests are fully self-contained.
 
 ## Requirements
 
@@ -68,6 +70,20 @@ don't need their own try/catch boilerplate. It covers three cases:
   handler, is caught automatically. The caller only ever sees a generic `500 Internal Server Error`
   — the real error and its details are logged internally, never exposed in the response, so
   internal failure reasons can't leak to API consumers.
+
+## Distributed Locking
+
+The login, update, and logout operations all read a session and then write to it, which opens a
+window for a race: if two requests for the _same_ session arrive close together, both could read
+the "before" state and step on each other's write.
+
+To prevent this, each operation is wrapped in a Redis-backed lock keyed by the combination of
+`tenantId`, `username`, and `ip`. A request for one session never blocks a request for a different
+session — only requests that share all three fields queue up behind one another, waiting for the
+lock to free up before they start processing.
+
+For this evaluation project, Redis itself is an in-memory mock, following the same self-contained
+approach used for MongoDB: no external Redis server is needed to run the app or its tests.
 
 ## Design
 

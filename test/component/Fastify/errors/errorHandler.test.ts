@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
+import type { Redis } from 'ioredis';
 import { buildApp } from '../../../../src/app.js';
 import { connectDb, disconnectDb } from '../../../../src/db/connection.js';
+import { connectRedis, disconnectRedis } from '../../../../src/redis/connection.js';
 import {
     BadRequestError,
     ConflictError,
@@ -13,18 +15,21 @@ import type { DbHandle } from '../../../../src/types/db.js';
 
 describe('errorHandler', () => {
     let dbHandle: DbHandle;
+    let redis: Redis;
     let app: FastifyInstance;
 
     beforeAll(async () => {
         dbHandle = await connectDb();
+        redis = connectRedis();
     }, 5000);
 
     afterAll(async () => {
         await disconnectDb(dbHandle);
+        await disconnectRedis(redis);
     });
 
     beforeEach(() => {
-        app = buildApp(dbHandle.db);
+        app = buildApp(dbHandle.db, redis);
 
         app.get(
             '/__test/validated',

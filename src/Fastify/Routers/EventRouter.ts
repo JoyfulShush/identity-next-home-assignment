@@ -6,7 +6,7 @@ import type { LoginRequest, LogoutRequest, UpdateRequest } from '../../types/eve
 
 /** Registers the routes mounted under the /event prefix. */
 export async function eventRouter(app: FastifyInstance): Promise<void> {
-    const eventController = new EventController(app.db);
+    const eventController = new EventController(app.db, app.redisLock);
 
     app.post(
         '/login',

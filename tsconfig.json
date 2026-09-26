@@ -10,6 +10,9 @@
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
         "types": ["node", "jest"],
+        "paths": {
+            "redlock": ["./node_modules/redlock/dist/index.d.ts"]
+        },
         "declaration": false,
         "sourceMap": true,
         "isolatedModules": true,

@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Db } from 'mongodb';
+import type Redlock from 'redlock';
 import { EventService } from '../Services/EventService.js';
 import { HttpStatusCode } from '../constants.js';
 import type { LoginRequest, LogoutRequest, UpdateRequest } from '../../types/event.js';
@@ -7,8 +8,8 @@ import type { LoginRequest, LogoutRequest, UpdateRequest } from '../../types/eve
 export class EventController {
     private readonly eventService: EventService;
 
-    constructor(db: Db) {
-        this.eventService = new EventService(db);
+    constructor(db: Db, redisLock: Redlock) {
+        this.eventService = new EventService(db, redisLock);
     }
 
     /** Handles POST /event/login: replies 201 with a new document, or 200 with the existing one. */

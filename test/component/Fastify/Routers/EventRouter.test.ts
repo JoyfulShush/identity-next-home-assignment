@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify';
+import type { Redis } from 'ioredis';
 import { ObjectId } from 'mongodb';
 import { buildApp } from '../../../../src/app.js';
 import { connectDb, disconnectDb } from '../../../../src/db/connection.js';
 import { ensureEventCollection } from '../../../../src/db/eventCollection.js';
+import { connectRedis, disconnectRedis } from '../../../../src/redis/connection.js';
 import type { DbHandle } from '../../../../src/types/db.js';
 
 const VALID_TENANT_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
@@ -30,19 +32,22 @@ function validLogoutBody(overrides: Record<string, unknown> = {}) {
 
 describe('POST /event/login', () => {
     let dbHandle: DbHandle;
+    let redis: Redis;
     let app: FastifyInstance;
 
     beforeAll(async () => {
         dbHandle = await connectDb();
         await ensureEventCollection(dbHandle.db);
+        redis = connectRedis();
     }, 5000);
 
     afterAll(async () => {
         await disconnectDb(dbHandle);
+        await disconnectRedis(redis);
     });
 
     beforeEach(() => {
-        app = buildApp(dbHandle.db);
+        app = buildApp(dbHandle.db, redis);
     });
 
     afterEach(async () => {
@@ -144,19 +149,22 @@ describe('POST /event/login', () => {
 
 describe('PATCH /event/update', () => {
     let dbHandle: DbHandle;
+    let redis: Redis;
     let app: FastifyInstance;
 
     beforeAll(async () => {
         dbHandle = await connectDb();
         await ensureEventCollection(dbHandle.db);
+        redis = connectRedis();
     }, 5000);
 
     afterAll(async () => {
         await disconnectDb(dbHandle);
+        await disconnectRedis(redis);
     });
 
     beforeEach(() => {
-        app = buildApp(dbHandle.db);
+        app = buildApp(dbHandle.db, redis);
     });
 
     afterEach(async () => {
@@ -238,19 +246,22 @@ describe('PATCH /event/update', () => {
 
 describe('POST /event/logout', () => {
     let dbHandle: DbHandle;
+    let redis: Redis;
     let app: FastifyInstance;
 
     beforeAll(async () => {
         dbHandle = await connectDb();
         await ensureEventCollection(dbHandle.db);
+        redis = connectRedis();
     }, 5000);
 
     afterAll(async () => {
         await disconnectDb(dbHandle);
+        await disconnectRedis(redis);
     });
 
     beforeEach(() => {
-        app = buildApp(dbHandle.db);
+        app = buildApp(dbHandle.db, redis);
     });
 
     afterEach(async () => {

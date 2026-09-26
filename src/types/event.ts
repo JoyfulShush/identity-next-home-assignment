@@ -40,3 +40,9 @@ export interface LogoutEventDto {
 export interface LogoutRequest {
     Body: LogoutEventDto;
 }
+
+export interface SessionIdentifier {
+    tenantId: string;
+    username: string;
+    ip: string;
+}

@@ -1,5 +1,8 @@
+import type { Redis } from 'ioredis';
 import { connectDb, disconnectDb } from '../../../../src/db/connection.js';
 import { ensureEventCollection } from '../../../../src/db/eventCollection.js';
+import { connectRedis, disconnectRedis } from '../../../../src/redis/connection.js';
+import { createRedisLock } from '../../../../src/redis/createRedisLock.js';
 import { EventService } from '../../../../src/Fastify/Services/EventService.js';
 import { NotFoundError } from '../../../../src/Fastify/errors/index.js';
 import type { DbHandle } from '../../../../src/types/db.js';
@@ -41,16 +44,19 @@ function validLogoutDto(overrides: Partial<LogoutEventDto> = {}): LogoutEventDto
 
 describe('EventService.login', () => {
     let dbHandle: DbHandle;
+    let redis: Redis;
     let eventService: EventService;
 
     beforeAll(async () => {
         dbHandle = await connectDb();
         await ensureEventCollection(dbHandle.db);
-        eventService = new EventService(dbHandle.db);
+        redis = connectRedis();
+        eventService = new EventService(dbHandle.db, createRedisLock(redis));
     }, 5000);
 
     afterAll(async () => {
         await disconnectDb(dbHandle);
+        await disconnectRedis(redis);
     });
 
     afterEach(async () => {
@@ -116,20 +122,42 @@ describe('EventService.login', () => {
         expect(second).toMatchObject({ created: true });
         expect(second.event._id).not.toEqual(first.event._id);
     });
+
+    it('is locked per tenantId+username+ip: concurrent logins for the same session create only one document', async () => {
+        const dto = validLoginDto();
+
+        const [first, second] = await Promise.all([
+            eventService.login(dto),
+            eventService.login(dto),
+        ]);
+
+        expect([first.created, second.created].sort()).toEqual([false, true]);
+        expect(first.event._id).toEqual(second.event._id);
+
+        const count = await dbHandle.db.collection('Event').countDocuments({
+            tenantId: dto.tenantId,
+            username: dto.username,
+            ip: dto.ip,
+        });
+        expect(count).toBe(1);
+    });
 });
 
 describe('EventService.update', () => {
     let dbHandle: DbHandle;
+    let redis: Redis;
     let eventService: EventService;
 
     beforeAll(async () => {
         dbHandle = await connectDb();
         await ensureEventCollection(dbHandle.db);
-        eventService = new EventService(dbHandle.db);
+        redis = connectRedis();
+        eventService = new EventService(dbHandle.db, createRedisLock(redis));
     }, 5000);
 
     afterAll(async () => {
         await disconnectDb(dbHandle);
+        await disconnectRedis(redis);
     });
 
     afterEach(async () => {
@@ -173,20 +201,45 @@ describe('EventService.update', () => {
             NotFoundError,
         );
     });
+
+    it('is locked per tenantId+username+ip: concurrent updates for the same session leave a consistent final state', async () => {
+        const { event: existing } = await eventService.login(validLoginDto());
+
+        const [first, second] = await Promise.all([
+            eventService.update(validUpdateDto({ tags: ['first'] })),
+            eventService.update(validUpdateDto({ tags: ['second'] })),
+        ]);
+
+        expect(first._id).toEqual(existing._id);
+        expect(second._id).toEqual(existing._id);
+
+        const stored = await dbHandle.db.collection('Event').findOne({ _id: existing._id });
+        expect([['first'], ['second']]).toContainEqual(stored?.tags);
+
+        const count = await dbHandle.db.collection('Event').countDocuments({
+            tenantId: existing.tenantId,
+            username: existing.username,
+            ip: existing.ip,
+        });
+        expect(count).toBe(1);
+    });
 });
 
 describe('EventService.logout', () => {
     let dbHandle: DbHandle;
+    let redis: Redis;
     let eventService: EventService;
 
     beforeAll(async () => {
         dbHandle = await connectDb();
         await ensureEventCollection(dbHandle.db);
-        eventService = new EventService(dbHandle.db);
+        redis = connectRedis();
+        eventService = new EventService(dbHandle.db, createRedisLock(redis));
     }, 5000);
 
     afterAll(async () => {
         await disconnectDb(dbHandle);
+        await disconnectRedis(redis);
     });
 
     afterEach(async () => {
@@ -227,5 +280,29 @@ describe('EventService.logout', () => {
 
         const stored = await dbHandle.db.collection('Event').findOne({ _id: existing._id });
         expect(stored?.loggedOutAt).toBeUndefined();
+    });
+
+    it('is locked per tenantId+username+ip: concurrent logouts for the same session set loggedOutAt exactly once, consistently', async () => {
+        const { event: existing } = await eventService.login(validLoginDto());
+
+        const firstTimestamp = '2024-06-01T00:00:00.000Z';
+        const secondTimestamp = '2024-07-01T00:00:00.000Z';
+
+        await Promise.all([
+            eventService.logout(validLogoutDto({ timestamp: firstTimestamp })),
+            eventService.logout(validLogoutDto({ timestamp: secondTimestamp })),
+        ]);
+
+        const stored = await dbHandle.db.collection('Event').findOne({ _id: existing._id });
+        expect([new Date(firstTimestamp), new Date(secondTimestamp)]).toContainEqual(
+            stored?.loggedOutAt,
+        );
+
+        const count = await dbHandle.db.collection('Event').countDocuments({
+            tenantId: existing.tenantId,
+            username: existing.username,
+            ip: existing.ip,
+        });
+        expect(count).toBe(1);
     });
 });

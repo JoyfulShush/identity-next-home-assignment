@@ -24,10 +24,14 @@
     "homepage": "https://github.com/JoyfulShush/identity-next-home-assignment#readme",
     "dependencies": {
         "fastify": "^5.12.5",
+        "ioredis": "^5.11.1",
+        "ioredis-mock": "^8.13.1",
         "mongodb": "^7.6.0",
-        "mongodb-memory-server": "^11.3.0"
+        "mongodb-memory-server": "^11.3.0",
+        "redlock": "^5.0.0-beta.2"
     },
     "devDependencies": {
+        "@types/ioredis-mock": "^8.2.8",
         "@types/jest": "^30.0.0",
         "@types/node": "^26.6.3",
         "jest": "^30.5.2",
