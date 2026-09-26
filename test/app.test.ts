@@ -1,5 +1,6 @@
 import { buildApp } from '../src/app.js';
-import { connectDb, disconnectDb, type DbHandle } from '../src/db/connection.js';
+import { connectDb, disconnectDb } from '../src/db/connection.js';
+import type { DbHandle } from '../src/types/db.js';
 
 describe('app', () => {
     let dbHandle: DbHandle;

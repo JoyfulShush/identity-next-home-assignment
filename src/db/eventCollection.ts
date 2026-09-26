@@ -1,16 +1,9 @@
 import type { Collection, Db } from 'mongodb';
 import { EVENT_COLLECTION } from './constants.js';
 import { EVENT_JSON_SCHEMA } from './eventSchema.js';
+import type { EventDocument } from '../types/db.js';
 
 export { EVENT_COLLECTION };
-
-export interface EventDocument {
-    tenantId: string;
-    username: string;
-    ip: string;
-    tags: string[];
-    timestamp: Date;
-}
 
 export async function ensureEventCollection(db: Db): Promise<Collection<EventDocument>> {
     const existing = await db.listCollections({ name: EVENT_COLLECTION }).toArray();

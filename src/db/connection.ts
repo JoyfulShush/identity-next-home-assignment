@@ -1,11 +1,6 @@
-import { MongoClient, type Db } from 'mongodb';
+import { MongoClient } from 'mongodb';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-
-export interface DbHandle {
-    client: MongoClient;
-    db: Db;
-    mongod: MongoMemoryServer;
-}
+import type { DbHandle } from '../types/db.js';
 
 const DB_NAME = 'identity-next';
 

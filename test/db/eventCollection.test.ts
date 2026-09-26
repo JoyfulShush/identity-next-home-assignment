@@ -1,10 +1,7 @@
 import type { Collection } from 'mongodb';
-import { connectDb, disconnectDb, type DbHandle } from '../../src/db/connection.js';
-import {
-    EVENT_COLLECTION,
-    ensureEventCollection,
-    type EventDocument,
-} from '../../src/db/eventCollection.js';
+import { connectDb, disconnectDb } from '../../src/db/connection.js';
+import { EVENT_COLLECTION, ensureEventCollection } from '../../src/db/eventCollection.js';
+import type { DbHandle, EventDocument } from '../../src/types/db.js';
 
 const VALID_TENANT_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 

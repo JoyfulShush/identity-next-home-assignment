@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
-import { connectDb, disconnectDb, type DbHandle } from './db/connection.js';
+import { connectDb, disconnectDb } from './db/connection.js';
 import { ensureEventCollection } from './db/eventCollection.js';
+import type { DbHandle } from './types/db.js';
 
 const PORT = 4000;
 
