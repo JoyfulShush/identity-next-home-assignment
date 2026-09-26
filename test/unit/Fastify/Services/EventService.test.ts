@@ -1,18 +1,30 @@
 import { connectDb, disconnectDb } from '../../../../src/db/connection.js';
 import { ensureEventCollection } from '../../../../src/db/eventCollection.js';
 import { EventService } from '../../../../src/Fastify/Services/EventService.js';
+import { NotFoundError } from '../../../../src/Fastify/errors/index.js';
 import type { DbHandle } from '../../../../src/types/db.js';
-import type { LoginEventDto } from '../../../../src/types/event.js';
+import type { LoginEventDto, UpdateEventDto } from '../../../../src/types/event.js';
 
 const VALID_TENANT_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 
-function validDto(overrides: Partial<LoginEventDto> = {}): LoginEventDto {
+function validLoginDto(overrides: Partial<LoginEventDto> = {}): LoginEventDto {
     return {
         tenantId: VALID_TENANT_ID,
         username: 'alice123',
         ip: '127.0.0.1',
         tags: ['login', 'vpn'],
         timestamp: '2024-01-01T00:00:00.000Z',
+        ...overrides,
+    };
+}
+
+function validUpdateDto(overrides: Partial<UpdateEventDto> = {}): UpdateEventDto {
+    return {
+        tenantId: VALID_TENANT_ID,
+        username: 'alice123',
+        ip: '127.0.0.1',
+        tags: ['vpn'],
+        timestamp: '2024-06-01T00:00:00.000Z',
         ...overrides,
     };
 }
@@ -36,7 +48,7 @@ describe('EventService.login', () => {
     });
 
     it('creates a new document when no matching open session exists', async () => {
-        const dto = validDto();
+        const dto = validLoginDto();
         const result = await eventService.login(dto);
 
         expect(result).toMatchObject({
@@ -55,11 +67,11 @@ describe('EventService.login', () => {
     });
 
     it('returns the existing document when an open session already matches tenantId+username+ip', async () => {
-        const dto = validDto();
+        const dto = validLoginDto();
         const first = await eventService.login(dto);
 
         const second = await eventService.login(
-            validDto({ timestamp: '2024-06-01T00:00:00.000Z' }),
+            validLoginDto({ timestamp: '2024-06-01T00:00:00.000Z' }),
         );
 
         expect(second).toMatchObject({
@@ -72,14 +84,14 @@ describe('EventService.login', () => {
     });
 
     it('creates a new document when a prior session with the same key was logged out', async () => {
-        const dto = validDto();
+        const dto = validLoginDto();
         const first = await eventService.login(dto);
         await dbHandle.db
             .collection('Event')
             .updateOne({ _id: first.event._id }, { $set: { loggedOutAt: new Date() } });
 
         const second = await eventService.login(
-            validDto({ timestamp: '2024-06-01T00:00:00.000Z' }),
+            validLoginDto({ timestamp: '2024-06-01T00:00:00.000Z' }),
         );
 
         expect(second).toMatchObject({ created: true });
@@ -87,11 +99,68 @@ describe('EventService.login', () => {
     });
 
     it('treats different ips for the same tenantId+username as separate sessions', async () => {
-        const first = await eventService.login(validDto({ ip: '127.0.0.1' }));
-        const second = await eventService.login(validDto({ ip: '192.168.1.1' }));
+        const first = await eventService.login(validLoginDto({ ip: '127.0.0.1' }));
+        const second = await eventService.login(validLoginDto({ ip: '192.168.1.1' }));
 
         expect(first).toMatchObject({ created: true });
         expect(second).toMatchObject({ created: true });
         expect(second.event._id).not.toEqual(first.event._id);
+    });
+});
+
+describe('EventService.update', () => {
+    let dbHandle: DbHandle;
+    let eventService: EventService;
+
+    beforeAll(async () => {
+        dbHandle = await connectDb();
+        await ensureEventCollection(dbHandle.db);
+        eventService = new EventService(dbHandle.db);
+    }, 5000);
+
+    afterAll(async () => {
+        await disconnectDb(dbHandle);
+    });
+
+    afterEach(async () => {
+        await dbHandle.db.collection('Event').deleteMany({});
+    });
+
+    it('replaces the tags and updatedAt of the matching open session', async () => {
+        const { event: existing } = await eventService.login(validLoginDto());
+
+        const updateDto = validUpdateDto({ tags: ['admin'] });
+        const updated = await eventService.update(updateDto);
+
+        expect(updated).toMatchObject({
+            _id: existing._id,
+            tenantId: existing.tenantId,
+            username: existing.username,
+            ip: existing.ip,
+            tags: ['admin'],
+            createdAt: existing.createdAt,
+            updatedAt: new Date(updateDto.timestamp),
+        });
+    });
+
+    it('throws NotFoundError when no session matches tenantId+username+ip', async () => {
+        await expect(eventService.update(validUpdateDto())).rejects.toThrow(NotFoundError);
+    });
+
+    it('throws NotFoundError when the matching session was already logged out', async () => {
+        const { event: existing } = await eventService.login(validLoginDto());
+        await dbHandle.db
+            .collection('Event')
+            .updateOne({ _id: existing._id }, { $set: { loggedOutAt: new Date() } });
+
+        await expect(eventService.update(validUpdateDto())).rejects.toThrow(NotFoundError);
+    });
+
+    it('throws NotFoundError when the ip does not match the open session', async () => {
+        await eventService.login(validLoginDto({ ip: '127.0.0.1' }));
+
+        await expect(eventService.update(validUpdateDto({ ip: '192.168.1.1' }))).rejects.toThrow(
+            NotFoundError,
+        );
     });
 });

@@ -17,3 +17,15 @@ export interface LoginResult {
 export interface LoginRequest {
     Body: LoginEventDto;
 }
+
+export interface UpdateEventDto {
+    tenantId: string;
+    username: string;
+    ip: string;
+    tags: string[];
+    timestamp: string;
+}
+
+export interface UpdateRequest {
+    Body: UpdateEventDto;
+}

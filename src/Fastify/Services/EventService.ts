@@ -1,7 +1,8 @@
 import type { Db, WithId } from 'mongodb';
 import { EVENT_COLLECTION } from '../../db/constants.js';
+import { NotFoundError } from '../errors/index.js';
 import type { EventDocument } from '../../types/db.js';
-import type { LoginEventDto, LoginResult } from '../../types/event.js';
+import type { LoginEventDto, LoginResult, UpdateEventDto } from '../../types/event.js';
 
 export class EventService {
     constructor(private readonly db: Db) {}
@@ -36,5 +37,24 @@ export class EventService {
         const event: WithId<EventDocument> = { _id: insertedId, ...newEvent };
 
         return { event, created: true };
+    }
+
+    async update(dto: UpdateEventDto): Promise<WithId<EventDocument>> {
+        const { tenantId, username, ip, tags, timestamp } = dto;
+        const collection = this.db.collection<EventDocument>(EVENT_COLLECTION);
+
+        const updated = await collection.findOneAndUpdate(
+            { tenantId, username, ip, loggedOutAt: { $exists: false } },
+            { $set: { tags, updatedAt: new Date(timestamp) } },
+            { returnDocument: 'after' },
+        );
+
+        if (!updated) {
+            throw new NotFoundError(
+                'No in-progress session found for the given tenantId, username, and ip',
+            );
+        }
+
+        return updated;
     }
 }

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { ObjectId } from 'mongodb';
 import { buildApp } from '../../../../src/app.js';
 import { connectDb, disconnectDb } from '../../../../src/db/connection.js';
 import { ensureEventCollection } from '../../../../src/db/eventCollection.js';
@@ -127,6 +128,100 @@ describe('POST /event/login', () => {
         const body = response.json();
         expect(body.errors).toEqual(
             expect.arrayContaining([expect.objectContaining({ field: 'extra' })]),
+        );
+    });
+});
+
+describe('PATCH /event/update', () => {
+    let dbHandle: DbHandle;
+    let app: FastifyInstance;
+
+    beforeAll(async () => {
+        dbHandle = await connectDb();
+        await ensureEventCollection(dbHandle.db);
+    }, 5000);
+
+    afterAll(async () => {
+        await disconnectDb(dbHandle);
+    });
+
+    beforeEach(() => {
+        app = buildApp(dbHandle.db);
+    });
+
+    afterEach(async () => {
+        await app.close();
+        await dbHandle.db.collection('Event').deleteMany({});
+    });
+
+    it('returns 200 with the updated document when a matching open session exists', async () => {
+        const login = await app.inject({
+            method: 'POST',
+            url: '/event/login',
+            payload: validBody(),
+        });
+
+        const response = await app.inject({
+            method: 'PATCH',
+            url: '/event/update',
+            payload: validBody({ tags: ['admin'], timestamp: '2024-06-01T00:00:00.000Z' }),
+        });
+
+        expect(response).toMatchObject({ statusCode: 200 });
+        expect(response.json()).toMatchObject({
+            _id: login.json()._id,
+            tags: ['admin'],
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-06-01T00:00:00.000Z',
+        });
+    });
+
+    it('returns 404 when there is no in-progress session to update', async () => {
+        const response = await app.inject({
+            method: 'PATCH',
+            url: '/event/update',
+            payload: validBody(),
+        });
+
+        expect(response).toMatchObject({ statusCode: 404 });
+        expect(response.json()).toMatchObject({
+            message: 'No in-progress session found for the given tenantId, username, and ip',
+        });
+    });
+
+    it('returns 404 when the matching session was already logged out', async () => {
+        const login = await app.inject({
+            method: 'POST',
+            url: '/event/login',
+            payload: validBody(),
+        });
+        await dbHandle.db
+            .collection('Event')
+            .updateOne(
+                { _id: new ObjectId(login.json()._id) },
+                { $set: { loggedOutAt: new Date() } },
+            );
+
+        const response = await app.inject({
+            method: 'PATCH',
+            url: '/event/update',
+            payload: validBody(),
+        });
+
+        expect(response).toMatchObject({ statusCode: 404 });
+    });
+
+    it('returns 400 with field details for an invalid body', async () => {
+        const response = await app.inject({
+            method: 'PATCH',
+            url: '/event/update',
+            payload: validBody({ tenantId: 'not-a-uuid' }),
+        });
+
+        expect(response).toMatchObject({ statusCode: 400 });
+        const body = response.json();
+        expect(body.errors).toEqual(
+            expect.arrayContaining([expect.objectContaining({ field: 'tenantId' })]),
         );
     });
 });
