@@ -1,10 +1,13 @@
 import type { Db, WithId } from 'mongodb';
 import type Redlock from 'redlock';
+import { buildEventDetailsFilter } from '../../db/buildEventDetailsFilter.js';
 import { EVENT_COLLECTION } from '../../db/constants.js';
 import { LOCK_DURATION_MS } from '../../redis/constants.js';
 import { NotFoundError } from '../errors/index.js';
 import type { EventDocument } from '../../types/db.js';
 import type {
+    EventDetailsQueryDto,
+    EventDetailsResult,
     LoginEventDto,
     LoginResult,
     LogoutEventDto,
@@ -102,5 +105,26 @@ export class EventService {
                 { $set: { loggedOutAt: new Date(timestamp) } },
             );
         });
+    }
+
+    /**
+     * Queries stored session documents for a tenant, filtered and paginated
+     * according to the given query.
+     */
+    async getDetails(tenantId: string, query: EventDetailsQueryDto): Promise<EventDetailsResult> {
+        const filter = buildEventDetailsFilter(tenantId, query);
+        const collection = this.db.collection<EventDocument>(EVENT_COLLECTION);
+
+        const [items, total] = await Promise.all([
+            collection
+                .find(filter)
+                .sort({ _id: 1 })
+                .skip(query.offset)
+                .limit(query.limit)
+                .toArray(),
+            collection.countDocuments(filter),
+        ]);
+
+        return { items, total };
     }
 }

@@ -6,7 +6,12 @@ import { createRedisLock } from '../../../../src/redis/createRedisLock.js';
 import { EventService } from '../../../../src/Fastify/Services/EventService.js';
 import { NotFoundError } from '../../../../src/Fastify/errors/index.js';
 import type { DbHandle } from '../../../../src/types/db.js';
-import type { LoginEventDto, LogoutEventDto, UpdateEventDto } from '../../../../src/types/event.js';
+import type {
+    EventDetailsQueryDto,
+    LoginEventDto,
+    LogoutEventDto,
+    UpdateEventDto,
+} from '../../../../src/types/event.js';
 
 const VALID_TENANT_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 
@@ -304,5 +309,207 @@ describe('EventService.logout', () => {
             ip: existing.ip,
         });
         expect(count).toBe(1);
+    });
+});
+
+describe('EventService.getDetails', () => {
+    let dbHandle: DbHandle;
+    let redis: Redis;
+    let eventService: EventService;
+
+    beforeAll(async () => {
+        dbHandle = await connectDb();
+        await ensureEventCollection(dbHandle.db);
+        redis = connectRedis();
+        eventService = new EventService(dbHandle.db, createRedisLock(redis));
+    }, 5000);
+
+    afterAll(async () => {
+        await disconnectDb(dbHandle);
+        await disconnectRedis(redis);
+    });
+
+    afterEach(async () => {
+        await dbHandle.db.collection('Event').deleteMany({});
+    });
+
+    function baseQuery(overrides: Partial<EventDetailsQueryDto> = {}): EventDetailsQueryDto {
+        return { offset: 0, limit: 50, ...overrides };
+    }
+
+    it('scopes results to the given tenant only', async () => {
+        await dbHandle.db.collection('Event').insertMany([
+            {
+                tenantId: VALID_TENANT_ID,
+                username: 'alice123',
+                ip: '127.0.0.1',
+                tags: [],
+                createdAt: new Date('2024-01-01T00:00:00.000Z'),
+                updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+            },
+            {
+                tenantId: '00000000-0000-4000-8000-000000000000',
+                username: 'bob456',
+                ip: '127.0.0.1',
+                tags: [],
+                createdAt: new Date('2024-01-01T00:00:00.000Z'),
+                updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+            },
+        ]);
+
+        const result = await eventService.getDetails(VALID_TENANT_ID, baseQuery());
+
+        expect(result.total).toBe(1);
+        expect(result.items).toHaveLength(1);
+        expect(result.items[0]).toMatchObject({ username: 'alice123' });
+    });
+
+    it('filters by username/ip/tags as an any-match whitelist, ANDed across fields', async () => {
+        await dbHandle.db.collection('Event').insertMany([
+            {
+                tenantId: VALID_TENANT_ID,
+                username: 'alice123',
+                ip: '127.0.0.1',
+                tags: ['vpn'],
+                createdAt: new Date('2024-01-01T00:00:00.000Z'),
+                updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+            },
+            {
+                tenantId: VALID_TENANT_ID,
+                username: 'bob456',
+                ip: '192.168.1.1',
+                tags: ['admin'],
+                createdAt: new Date('2024-01-01T00:00:00.000Z'),
+                updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+            },
+        ]);
+
+        const result = await eventService.getDetails(
+            VALID_TENANT_ID,
+            baseQuery({ username: ['alice123', 'bob456'], tags: ['vpn'] }),
+        );
+
+        expect(result.total).toBe(1);
+        expect(result.items[0]).toMatchObject({ username: 'alice123' });
+    });
+
+    it('splits documents by isLoggedOut true/false', async () => {
+        await dbHandle.db.collection('Event').insertMany([
+            {
+                tenantId: VALID_TENANT_ID,
+                username: 'alice123',
+                ip: '127.0.0.1',
+                tags: [],
+                createdAt: new Date('2024-01-01T00:00:00.000Z'),
+                updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+                loggedOutAt: new Date('2024-01-02T00:00:00.000Z'),
+            },
+            {
+                tenantId: VALID_TENANT_ID,
+                username: 'bob456',
+                ip: '127.0.0.1',
+                tags: [],
+                createdAt: new Date('2024-01-01T00:00:00.000Z'),
+                updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+            },
+        ]);
+
+        const loggedOut = await eventService.getDetails(
+            VALID_TENANT_ID,
+            baseQuery({ isLoggedOut: true }),
+        );
+        expect(loggedOut.items).toHaveLength(1);
+        expect(loggedOut.items[0]).toMatchObject({ username: 'alice123' });
+
+        const active = await eventService.getDetails(
+            VALID_TENANT_ID,
+            baseQuery({ isLoggedOut: false }),
+        );
+        expect(active.items).toHaveLength(1);
+        expect(active.items[0]).toMatchObject({ username: 'bob456' });
+    });
+
+    it('applies range boundaries correctly: gt excludes an exact match, gte includes it', async () => {
+        await dbHandle.db.collection('Event').insertMany([
+            {
+                tenantId: VALID_TENANT_ID,
+                username: 'alice123',
+                ip: '127.0.0.1',
+                tags: [],
+                createdAt: new Date('2024-03-01T00:00:00.000Z'),
+                updatedAt: new Date('2024-03-01T00:00:00.000Z'),
+            },
+        ]);
+
+        const gt = await eventService.getDetails(
+            VALID_TENANT_ID,
+            baseQuery({ createdAt: { gt: ['2024-03-01T00:00:00.000Z'] } }),
+        );
+        expect(gt.total).toBe(0);
+
+        const gte = await eventService.getDetails(
+            VALID_TENANT_ID,
+            baseQuery({ createdAt: { gte: ['2024-03-01T00:00:00.000Z'] } }),
+        );
+        expect(gte.total).toBe(1);
+    });
+
+    it('paginates on the DB side: total reflects all matches, items respect limit/offset', async () => {
+        await dbHandle.db.collection('Event').insertMany(
+            Array.from({ length: 5 }, (_, index) => ({
+                tenantId: VALID_TENANT_ID,
+                username: `user${index}`,
+                ip: '127.0.0.1',
+                tags: [],
+                createdAt: new Date('2024-01-01T00:00:00.000Z'),
+                updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+            })),
+        );
+
+        const firstPage = await eventService.getDetails(VALID_TENANT_ID, baseQuery({ limit: 2 }));
+        expect(firstPage.total).toBe(5);
+        expect(firstPage.items).toHaveLength(2);
+
+        const secondPage = await eventService.getDetails(
+            VALID_TENANT_ID,
+            baseQuery({ limit: 2, offset: 2 }),
+        );
+        expect(secondPage.total).toBe(5);
+        expect(secondPage.items).toHaveLength(2);
+        expect(secondPage.items.map((item) => item._id)).not.toEqual(
+            firstPage.items.map((item) => item._id),
+        );
+
+        const pastEnd = await eventService.getDetails(
+            VALID_TENANT_ID,
+            baseQuery({ limit: 2, offset: 10 }),
+        );
+        expect(pastEnd.total).toBe(5);
+        expect(pastEnd.items).toHaveLength(0);
+    });
+
+    it('returns an empty page for a contradictory range', async () => {
+        await dbHandle.db.collection('Event').insertMany([
+            {
+                tenantId: VALID_TENANT_ID,
+                username: 'alice123',
+                ip: '127.0.0.1',
+                tags: [],
+                createdAt: new Date('2024-03-01T00:00:00.000Z'),
+                updatedAt: new Date('2024-03-01T00:00:00.000Z'),
+            },
+        ]);
+
+        const result = await eventService.getDetails(
+            VALID_TENANT_ID,
+            baseQuery({
+                createdAt: {
+                    gte: ['2024-06-01T00:00:00.000Z'],
+                    lte: ['2024-01-01T00:00:00.000Z'],
+                },
+            }),
+        );
+
+        expect(result).toEqual({ items: [], total: 0 });
     });
 });

@@ -2,7 +2,8 @@
 
 Backend service built with Fastify and TypeScript, for evaluation purposes. Uses MongoDB for
 storage and Redis with Redlock for distributed locking, both backed by in-memory mocks so the
-app and its tests are fully self-contained.
+app and its tests are fully self-contained. Uses `qs` as Fastify's querystring parser to support
+bracket-syntax filters on the session-details endpoint.
 
 ## Requirements
 
@@ -84,6 +85,43 @@ lock to free up before they start processing.
 
 For this evaluation project, Redis itself is an in-memory mock, following the same self-contained
 approach used for MongoDB: no external Redis server is needed to run the app or its tests.
+
+## API
+
+All routes are mounted under `/event`.
+
+- `POST /login` — starts a session for a `tenantId`/`username`/`ip` combination, or returns the
+  existing one if it's already open.
+- `PATCH /update` — replaces the `tags` and `updatedAt` of the open session matching
+  `tenantId`/`username`/`ip`.
+- `POST /logout` — marks the open session matching `tenantId`/`username`/`ip` as ended.
+- `GET /:tenantId/details` — queries stored sessions for a tenant. See below.
+
+### Querying session details
+
+`GET /event/:tenantId/details` returns paginated, filtered session documents for a tenant:
+
+```
+GET /event/<tenantId>/details?username=alice&tags=vpn&tags=admin&isLoggedOut=false
+    &createdAt[gte]=2024-01-01T00:00:00.000Z&limit=20&offset=0
+```
+
+- `username`, `ip`, `tags` — inclusion whitelists. Each can be repeated (`?tags=a&tags=b`) or
+  given as a bracket array (`?tags[]=a&tags[]=b`); a document matches if it has _any_ of the
+  given values for that field. Different fields are ANDed together.
+- `createdAt`, `updatedAt`, `loggedOutAt` — date-range filters, expressed with bracket-operator
+  syntax: `eq`, `gt`, `gte`, `lt`, `lte` (e.g. `createdAt[gte]=...&createdAt[lte]=...`). Giving the
+  same operator more than once combines them with AND, keeping the most restrictive bound.
+- `isLoggedOut` — `true` restricts to sessions that have been logged out, `false` to sessions
+  still open, and omitting it includes both.
+- `offset` / `limit` — pagination, applied on the database side. `limit` defaults to 50.
+
+The response is `{ items, total }`, where `items` is the current page of matching documents and
+`total` is the count of all matches, ignoring pagination.
+
+Because the bracket syntax above isn't supported by Fastify's default querystring parser, this
+project configures [`qs`](https://www.npmjs.com/package/qs) as its querystring parser
+(`src/app.ts`).
 
 ## Design
 

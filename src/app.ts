@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import type { Db } from 'mongodb';
 import type { Redis } from 'ioredis';
+import qs from 'qs';
 import { errorHandler } from './Fastify/errors/errorHandler.js';
 import { eventRouter } from './Fastify/Routers/EventRouter.js';
 import { createRedisLock } from './redis/createRedisLock.js';
@@ -19,7 +20,17 @@ export function buildApp(db: Db, redis: Redis): FastifyInstance {
                 allErrors: true,
                 verbose: true,
                 removeAdditional: false,
+                coerceTypes: 'array',
             },
+        },
+        routerOptions: {
+            querystringParser: (str) =>
+                qs.parse(str, {
+                    depth: 1,
+                    arrayLimit: 100,
+                    allowPrototypes: false,
+                    allowDots: false,
+                }),
         },
     });
 

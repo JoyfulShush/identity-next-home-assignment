@@ -10,3 +10,5 @@ export const UUID_V4_PATTERN =
 export const USERNAME_PATTERN = '^[A-Za-z0-9]{1,64}$';
 
 export const EVENT_COLLECTION = 'Event';
+
+export const DEFAULT_LIMIT = 50;

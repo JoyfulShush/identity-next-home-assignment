@@ -3,7 +3,12 @@ import type { Db } from 'mongodb';
 import type Redlock from 'redlock';
 import { EventService } from '../Services/EventService.js';
 import { HttpStatusCode } from '../constants.js';
-import type { LoginRequest, LogoutRequest, UpdateRequest } from '../../types/event.js';
+import type {
+    EventDetailsRequest,
+    LoginRequest,
+    LogoutRequest,
+    UpdateRequest,
+} from '../../types/event.js';
 
 export class EventController {
     private readonly eventService: EventService;
@@ -28,5 +33,14 @@ export class EventController {
     async logout(request: FastifyRequest<LogoutRequest>, reply: FastifyReply): Promise<void> {
         await this.eventService.logout(request.body);
         reply.status(HttpStatusCode.NO_CONTENT).send();
+    }
+
+    /** Handles GET /event/:tenantId/details: replies 200 with the matching, paginated documents. */
+    async getDetails(
+        request: FastifyRequest<EventDetailsRequest>,
+        reply: FastifyReply,
+    ): Promise<void> {
+        const result = await this.eventService.getDetails(request.params.tenantId, request.query);
+        reply.status(HttpStatusCode.OK).send(result);
     }
 }
