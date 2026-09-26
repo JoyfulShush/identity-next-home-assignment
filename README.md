@@ -36,6 +36,13 @@ npm test
 Tests are written with Jest and `ts-jest`, using Fastify's `inject` for in-process HTTP testing.
 Test files live under `test/` (outside `src/`), mirroring the source they cover.
 
+```bash
+npm run coverage
+```
+
+Runs the test suite with coverage collected from `src/` (excluding `src/index.ts` and
+`src/types/`). Enforces a minimum of 85% for statements, branches, functions, and lines.
+
 ## Formatting
 
 ```bash

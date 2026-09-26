@@ -1,8 +1,19 @@
 import { buildApp } from '../src/app.js';
+import { connectDb, disconnectDb, type DbHandle } from '../src/db/connection.js';
 
 describe('app', () => {
+    let dbHandle: DbHandle;
+
+    beforeAll(async () => {
+        dbHandle = await connectDb();
+    });
+
+    afterAll(async () => {
+        await disconnectDb(dbHandle);
+    });
+
     it('responds to GET /health with status ok', async () => {
-        const app = buildApp();
+        const app = buildApp(dbHandle.db);
 
         const response = await app.inject({ method: 'GET', url: '/health' });
 

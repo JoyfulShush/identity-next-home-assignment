@@ -9,7 +9,8 @@
         "start": "node dist/index.js",
         "dev": "node --loader ts-node/esm --watch src/index.ts",
         "format": "prettier --write .",
-        "format:check": "prettier --check ."
+        "format:check": "prettier --check .",
+        "coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage"
     },
     "repository": {
         "type": "git",
@@ -22,7 +23,9 @@
     },
     "homepage": "https://github.com/JoyfulShush/identity-next-home-assignment#readme",
     "dependencies": {
-        "fastify": "^5.12.5"
+        "fastify": "^5.12.5",
+        "mongodb": "^7.6.0",
+        "mongodb-memory-server": "^11.3.0"
     },
     "devDependencies": {
         "@types/jest": "^30.0.0",
@@ -32,5 +35,8 @@
         "ts-jest": "^29.4.14",
         "ts-node": "^10.9.2",
         "typescript": "^6.0.3"
+    },
+    "allowScripts": {
+        "mongodb-memory-server@11.3.0": true
     }
 }
