@@ -3,6 +3,11 @@ import type { Db } from 'mongodb';
 import { errorHandler } from './Fastify/errors/errorHandler.js';
 import { eventRouter } from './Fastify/Routers/EventRouter.js';
 
+/**
+ * Builds and configures the Fastify app instance, wiring up routes and error handling.
+ * @param db - The database the app's routes will operate on.
+ * @returns The configured Fastify instance.
+ */
 export function buildApp(db: Db): FastifyInstance {
     const app = Fastify({
         logger: true,

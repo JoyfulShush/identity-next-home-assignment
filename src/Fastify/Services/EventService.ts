@@ -12,6 +12,10 @@ import type {
 export class EventService {
     constructor(private readonly db: Db) {}
 
+    /**
+     * Returns the open session matching tenantId+username+ip, or creates one.
+     * @returns The event document, and whether it was newly created.
+     */
     async login(dto: LoginEventDto): Promise<LoginResult> {
         const { tenantId, username, ip, tags, timestamp } = dto;
         const collection = this.db.collection<EventDocument>(EVENT_COLLECTION);
@@ -44,6 +48,11 @@ export class EventService {
         return { event, created: true };
     }
 
+    /**
+     * Replaces the tags and updatedAt of the open session matching tenantId+username+ip.
+     * @returns The updated event document.
+     * @throws {NotFoundError} If no matching open session exists.
+     */
     async update(dto: UpdateEventDto): Promise<WithId<EventDocument>> {
         const { tenantId, username, ip, tags, timestamp } = dto;
         const collection = this.db.collection<EventDocument>(EVENT_COLLECTION);
@@ -63,6 +72,7 @@ export class EventService {
         return updated;
     }
 
+    /** Sets loggedOutAt on the open session matching tenantId+username+ip, if one exists. */
     async logout(dto: LogoutEventDto): Promise<void> {
         const { tenantId, username, ip, timestamp } = dto;
         const collection = this.db.collection<EventDocument>(EVENT_COLLECTION);

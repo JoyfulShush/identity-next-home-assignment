@@ -5,6 +5,7 @@ import type { DbHandle } from './types/db.js';
 
 const PORT = 4000;
 
+/** Connects to the database, builds the app, and starts listening on PORT. */
 async function main(): Promise<void> {
     const dbHandle: DbHandle = await connectDb();
     await ensureEventCollection(dbHandle.db);

@@ -4,6 +4,7 @@ import { eventLoginSchema } from '../../schemas/loginEventSchema.js';
 import { eventLogoutSchema } from '../../schemas/logoutEventSchema.js';
 import type { LoginRequest, LogoutRequest, UpdateRequest } from '../../types/event.js';
 
+/** Registers the routes mounted under the /event prefix. */
 export async function eventRouter(app: FastifyInstance): Promise<void> {
     const eventController = new EventController(app.db);
 
