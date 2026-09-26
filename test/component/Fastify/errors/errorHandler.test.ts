@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { buildApp } from '../../../src/app.js';
-import { connectDb, disconnectDb } from '../../../src/db/connection.js';
+import { buildApp } from '../../../../src/app.js';
+import { connectDb, disconnectDb } from '../../../../src/db/connection.js';
 import {
     BadRequestError,
     ConflictError,
@@ -8,8 +8,8 @@ import {
     HttpError,
     NotFoundError,
     UnauthorizedError,
-} from '../../../src/Fastify/errors/index.js';
-import type { DbHandle } from '../../../src/types/db.js';
+} from '../../../../src/Fastify/errors/index.js';
+import type { DbHandle } from '../../../../src/types/db.js';
 
 describe('errorHandler', () => {
     let dbHandle: DbHandle;
@@ -143,9 +143,9 @@ describe('errorHandler', () => {
                 url: '/__test/validated?username=not valid!',
             });
 
-            expect(response.statusCode).toBe(400);
+            expect(response).toMatchObject({ statusCode: 400 });
             const body = response.json();
-            expect(body.message).toBe('Bad User Input');
+            expect(body).toMatchObject({ message: 'Bad User Input' });
             expect(body.errors).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
@@ -160,7 +160,7 @@ describe('errorHandler', () => {
         it('returns 400 naming a missing required field, with no value', async () => {
             const response = await app.inject({ method: 'GET', url: '/__test/validated' });
 
-            expect(response.statusCode).toBe(400);
+            expect(response).toMatchObject({ statusCode: 400 });
             const body = response.json();
             const usernameError = body.errors.find(
                 (error: { field: string }) => error.field === 'username',
@@ -175,7 +175,7 @@ describe('errorHandler', () => {
                 url: '/__test/validated?username=alice&extra=1',
             });
 
-            expect(response.statusCode).toBe(400);
+            expect(response).toMatchObject({ statusCode: 400 });
             const body = response.json();
             expect(body.errors).toEqual(
                 expect.arrayContaining([expect.objectContaining({ field: 'extra' })]),
@@ -188,7 +188,7 @@ describe('errorHandler', () => {
                 url: '/__test/validated?username=not valid!&extra=1',
             });
 
-            expect(response.statusCode).toBe(400);
+            expect(response).toMatchObject({ statusCode: 400 });
             const body = response.json();
             expect(body.errors).toHaveLength(2);
             expect(body.errors).toEqual(
@@ -206,7 +206,7 @@ describe('errorHandler', () => {
                 payload: {},
             });
 
-            expect(response.statusCode).toBe(400);
+            expect(response).toMatchObject({ statusCode: 400 });
             const body = response.json();
             expect(body.errors).toEqual(
                 expect.arrayContaining([expect.objectContaining({ field: 'tenantId' })]),
@@ -219,7 +219,7 @@ describe('errorHandler', () => {
                 url: '/__test/raw-validation-error/empty-instance-path',
             });
 
-            expect(response.statusCode).toBe(400);
+            expect(response).toMatchObject({ statusCode: 400 });
             const body = response.json();
             expect(body.errors).toEqual([
                 expect.objectContaining({ field: '', message: 'must be object' }),
@@ -232,7 +232,7 @@ describe('errorHandler', () => {
                 url: '/__test/raw-validation-error/no-message',
             });
 
-            expect(response.statusCode).toBe(400);
+            expect(response).toMatchObject({ statusCode: 400 });
             const body = response.json();
             expect(body.errors).toEqual([
                 expect.objectContaining({ field: 'username', message: 'is invalid' }),
@@ -250,7 +250,7 @@ describe('errorHandler', () => {
         ])('maps %s to status %i with { message }', async (kind, statusCode, message) => {
             const response = await app.inject({ method: 'GET', url: `/__test/http-error/${kind}` });
 
-            expect(response.statusCode).toBe(statusCode);
+            expect(response).toMatchObject({ statusCode });
             expect(response.json()).toEqual({ message });
         });
 
@@ -260,7 +260,7 @@ describe('errorHandler', () => {
                 url: '/__test/http-error/raw-http-error',
             });
 
-            expect(response.statusCode).toBe(422);
+            expect(response).toMatchObject({ statusCode: 422 });
             expect(response.json()).toEqual({
                 message: 'custom status without a named subclass',
             });
@@ -271,21 +271,21 @@ describe('errorHandler', () => {
         it('returns a generic 500 body for a synchronous throw, hiding the real message', async () => {
             const response = await app.inject({ method: 'GET', url: '/__test/sync-throw' });
 
-            expect(response.statusCode).toBe(500);
+            expect(response).toMatchObject({ statusCode: 500 });
             expect(response.json()).toEqual({ message: 'Internal Server Error' });
         });
 
         it('returns a generic 500 body for a rejected async handler, hiding the real message', async () => {
             const response = await app.inject({ method: 'GET', url: '/__test/async-throw' });
 
-            expect(response.statusCode).toBe(500);
+            expect(response).toMatchObject({ statusCode: 500 });
             expect(response.json()).toEqual({ message: 'Internal Server Error' });
         });
 
         it('returns a generic 500 body even for a non-Error thrown value', async () => {
             const response = await app.inject({ method: 'GET', url: '/__test/throw-non-error' });
 
-            expect(response.statusCode).toBe(500);
+            expect(response).toMatchObject({ statusCode: 500 });
             expect(response.json()).toEqual({ message: 'Internal Server Error' });
         });
     });

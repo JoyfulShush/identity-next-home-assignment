@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance } from 'fastify';
 import type { Db } from 'mongodb';
 import { errorHandler } from './Fastify/errors/errorHandler.js';
+import { eventRouter } from './Fastify/Routers/EventRouter.js';
 
 export function buildApp(db: Db): FastifyInstance {
     const app = Fastify({
@@ -20,6 +21,8 @@ export function buildApp(db: Db): FastifyInstance {
     app.get('/health', async () => {
         return { status: 'ok' };
     });
+
+    app.register(eventRouter, { prefix: '/event' });
 
     return app;
 }

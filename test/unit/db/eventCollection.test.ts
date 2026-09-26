@@ -1,7 +1,7 @@
 import type { Collection } from 'mongodb';
-import { connectDb, disconnectDb } from '../../src/db/connection.js';
-import { EVENT_COLLECTION, ensureEventCollection } from '../../src/db/eventCollection.js';
-import type { DbHandle, EventDocument } from '../../src/types/db.js';
+import { connectDb, disconnectDb } from '../../../src/db/connection.js';
+import { EVENT_COLLECTION, ensureEventCollection } from '../../../src/db/eventCollection.js';
+import type { DbHandle, EventDocument } from '../../../src/types/db.js';
 
 const VALID_TENANT_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 
@@ -51,7 +51,7 @@ describe('Event collection', () => {
     it('accepts a fully valid event document', async () => {
         const result = await collection.insertOne(validEvent());
 
-        expect(result.acknowledged).toBe(true);
+        expect(result).toMatchObject({ acknowledged: true });
     });
 
     describe('tenantId', () => {
@@ -89,24 +89,24 @@ describe('Event collection', () => {
 
         it('accepts a single character', async () => {
             const result = await collection.insertOne(validEvent({ username: 'a' }));
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
 
         it('accepts exactly 64 characters', async () => {
             const result = await collection.insertOne(validEvent({ username: 'a'.repeat(64) }));
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
     });
 
     describe('ip', () => {
         it('accepts a valid IPv4 address', async () => {
             const result = await collection.insertOne(validEvent({ ip: '192.168.1.1' }));
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
 
         it('accepts a valid IPv6 address', async () => {
             const result = await collection.insertOne(validEvent({ ip: '2001:db8::1' }));
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
 
         it('rejects an invalid address', async () => {
@@ -123,12 +123,12 @@ describe('Event collection', () => {
     describe('tags', () => {
         it('accepts an empty array', async () => {
             const result = await collection.insertOne(validEvent({ tags: [] }));
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
 
         it('accepts unique tags', async () => {
             const result = await collection.insertOne(validEvent({ tags: ['login', 'vpn'] }));
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
 
         it('rejects duplicate tags', async () => {
@@ -150,7 +150,7 @@ describe('Event collection', () => {
 
         it('accepts a valid date', async () => {
             const result = await collection.insertOne(validEvent({ createdAt: new Date() }));
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
     });
 
@@ -166,19 +166,19 @@ describe('Event collection', () => {
 
         it('accepts a valid date', async () => {
             const result = await collection.insertOne(validEvent({ updatedAt: new Date() }));
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
     });
 
     describe('loggedOutAt', () => {
         it('is accepted when absent', async () => {
             const result = await collection.insertOne(validEvent());
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
 
         it('accepts a valid date when present', async () => {
             const result = await collection.insertOne(validEvent({ loggedOutAt: new Date() }));
-            expect(result.acknowledged).toBe(true);
+            expect(result).toMatchObject({ acknowledged: true });
         });
 
         it('rejects a string instead of a date', async () => {
